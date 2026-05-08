@@ -1,0 +1,18 @@
+export const keySeeds = [
+  "EXACT",
+  "ENVELOPE",
+  "FASHION",
+  "EMBRACE",
+  "AEROBIC",
+  "DIRECT",
+  "ABSURD",
+  "ADDRESS",
+  "ALBUM",
+  "DRY",
+  "DOLL",
+  "EVOKE",
+  "FALL",
+  "EMOTION",
+  "DISCOVER",
+  "FACE",
+];

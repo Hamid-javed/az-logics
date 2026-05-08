@@ -1,0 +1,69 @@
+name: CI/CD > NeuroMail WEB > Live
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: main
+  cancel-in-progress: true
+
+jobs:
+  deploy-neuromail:
+    name: Deploy NeuroMail WEB
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Configure SSH
+        env:
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/.ssh/
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/github
+          chmod 600 ~/.ssh/github
+          cat >>~/.ssh/config <<END
+          Host target
+            HostName $SSH_HOST
+            User $SSH_USER
+            IdentityFile ~/.ssh/github
+            LogLevel ERROR
+            StrictHostKeyChecking no
+          END
+
+      - name: Run Deployment on Server
+        env:
+          SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
+        shell: /usr/bin/bash -e {0}
+        run: |
+          echo "Deploying NeuroMail WEB..."
+          ssh target '
+            # Fix dubious ownership for Git
+            git config --global --add safe.directory /var/www/NeuroMailWeb
+
+            cd /var/www/NeuroMailWeb
+
+            git fetch origin main
+            git reset --hard origin/main
+
+            # Load NVM and use Node
+            export NVM_DIR="$HOME/.nvm"
+            source "$NVM_DIR/nvm.sh"
+            nvm use 24.13.0
+
+            # Install dependencies & build
+            npm install
+            npm run build
+
+            # Restart systemd service and reload nginx
+            export SSH_PASSWORD='"'"$SSH_PASSWORD"'"'
+            echo "$SSH_PASSWORD" | sudo -S systemctl restart neuromail-web.service
+            echo "$SSH_PASSWORD" | sudo -S systemctl reload nginx
+            # Optional: check service status
+            echo "$SSH_PASSWORD" | sudo -S systemctl status neuromail-web.service --no-pager
+          '

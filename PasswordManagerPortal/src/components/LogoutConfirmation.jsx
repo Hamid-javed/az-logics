@@ -1,0 +1,74 @@
+import React, { useState } from "react";
+import { Cross } from "../assets/icons";
+import { useAuth } from "../AuthContext";
+import { ThreeDots } from "react-loader-spinner";
+
+function LogoutConfirmation() {
+  const [loading, setLoading] = useState(false);
+  const { logout, setOpenLogoutModal } = useAuth();
+
+ const handleLogOut = async () => {
+    setLoading(true);
+    try {
+      await logout(); 
+      setOpenLogoutModal(false); 
+    } catch (error) {
+      console.error("Logout failed", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <section className="fixed inset-0 flex justify-center items-center bg-[#0000006B] z-50 px-[20px]">
+      <section className="bg-[#101E71] relative w-full max-w-[600px] h-[250px] sm:h-[350px] rounded-[5px] flex flex-col justify-center items-center">
+        <span
+          className="absolute right-[17px] top-[17px] cursor-pointer"
+          onClick={() => setOpenLogoutModal(false) }
+        >
+          <Cross />
+        </span>
+        <section className="flex flex-col justify-center text-center mb-7 sm:mb-12">
+          <h1 className="text-white leading-[20px] sm:leading-[44.7px] text-[20px] sm:text-[32px] mb-4">
+            Are you sure you want to Logout ?
+          </h1>
+        </section>
+
+        <section className="mt-[0px] sm:mt-[20px] w-full flex items-center justify-center gap-[9px] sm:gap-[20px] flex-wrap">
+          <button
+            className="dm-sans  bg-[#0E1956] w-[125px] h-[40px] sm:w-[254px] sm:h-[58px] rounded-[6.23px] sm:rounded-[18.37px] outline-none 
+          border-none flex items-center justify-center text-[12px] sm:text-[15.5px] 
+           font-[400] text-white"
+            onClick={() => setOpenLogoutModal(false)}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleLogOut}
+            style={{
+              background: loading
+                ? "#0E1956" // Disabled background color
+                : "linear-gradient(90deg, #A143FF 0%, #5003DB 100%)", // Active color gradient
+              cursor: loading ? "not-allowed" : "pointer", // Cursor change when loading
+            }}
+            disabled={loading} // Disable button when loading or blocked
+            className="dm-sans w-[125px] h-[40px] sm:w-[254px] sm:h-[58px] rounded-[6.23px] sm:rounded-[18.37px] outline-none border-none flex items-center justify-center text-[12px] sm:text-[16px] text-white"
+          >
+            Logout
+            {loading && (
+              <ThreeDots
+                color="white"
+                height={10}
+                width={35}
+                ariaLabel="loading"
+                wrapperStyle={{ marginLeft: "5%" }}
+              />
+            )}
+          </button>
+        </section>
+      </section>
+    </section>
+  );
+}
+
+export default LogoutConfirmation;

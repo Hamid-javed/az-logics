@@ -1,0 +1,685 @@
+import { useEffect, useRef, useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+
+import emojiArray from "../../data/emojis";
+import { toast } from "react-toastify";
+import { useAuth } from "../../AuthContext";
+import useAddPassword from "../../hooks/useAddPassword";
+import useUpdatePassword from "../../hooks/useUpdatePassword";
+import useGetFolders from "../../hooks/useGetFolders";
+import useGetFile from "../../hooks/useGetFile";
+import { ThreeDots } from "react-loader-spinner";
+import {
+  Folders,
+  CloseEye,
+  Cloud,
+  Cross,
+  Dice,
+  Download,
+  File,
+  Folder,
+  OpenEye,
+} from "../../assets/icons";
+import { encryptAnyData } from "../../utils/cryptoOperations";
+
+function AddPassword() {
+  const [isPasswordShow, setIsPasswordShow] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
+  const [inputStr, setInputStr] = useState("");
+  const [errors, setErrors] = useState({});
+  const location = useLocation();
+  const { state } = location;
+  const isUpdating = Boolean(state?.item);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [selectedValue, setSelectedValue] = useState("");
+  const [selectedEmoji, setSelectedEmoji] = useState("");
+  const [progressValue, setProgressValue] = useState(10);
+  const [loading, setLoading] = useState(false);
+
+  const fileInputRef = useRef(null);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [formData, setFormData] = useState({
+    title: "",
+    username: null,
+    password: null,
+    url: null,
+    notes: null,
+    emoji: null,
+    folder: "",
+    file: "",
+    ...state?.item,
+  });
+  const navigate = useNavigate();
+  const {
+    handleGeneratePassVisibility,
+    generatorPassword,
+    setGeneratorPassword,
+    passSelectedFolderId,
+    handleCreateFolderModal,
+    handleConfirmChangesModal,
+  } = useAuth();
+  const { mutate: addPassword } = useAddPassword();
+  const { mutate: updatePassword } = useUpdatePassword();
+  const { data: data } = useGetFolders();
+  const { mutate } = useGetFile();
+
+  const handleFileDownload = () => {
+    const fileType = state?.item?.file_type;
+    const fileName = state?.item?.file_name;
+    mutate({ fileType, fileName });
+  };
+  useEffect(() => {
+    if (generatorPassword)
+      setFormData((prevFormData) => ({
+        ...prevFormData,
+        password: generatorPassword,
+      }));
+  }, [generatorPassword]);
+
+  const uploadData = new FormData();
+  for (const key in formData) {
+    if (formData[key] !== null && formData[key] !== undefined) {
+      uploadData.append(key, formData[key]);
+    }
+  }
+
+  const encryptFormData = async (formData) => {
+    const encryptedData = { ...formData };
+
+    // List of fields that need encryption (sensitive text data)
+    const fieldsToEncrypt = [
+      "emoji",
+      "username",
+      "password",
+      "url",
+      "notes",
+    ];
+
+    for (const field of fieldsToEncrypt) {
+      const value = formData[field];
+      if (value !== null && value !== undefined && value !== "") {
+        try {
+          encryptedData[field] = await encryptAnyData(value);
+        } catch (error) {
+          console.error(`Failed to encrypt ${field}:`, error);
+        }
+      }
+    }
+
+    return encryptedData;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      // Create FormData object
+      const uploadData = new FormData();
+
+      // Handle file separately
+      const file = formData.file;
+
+      // Create copy without file for encryption
+      const formDataCopy = { ...formData };
+      delete formDataCopy.file;
+
+      // Encrypt only sensitive fields
+      const encryptedFormData = await encryptFormData(formDataCopy);
+
+      // Append all fields to FormData
+      for (const [key, value] of Object.entries(encryptedFormData)) {
+        if (value !== null && value !== undefined) {
+          if (value instanceof Blob || value instanceof File) {
+            uploadData.append(key, value);
+          } else {
+            uploadData.append(key, String(value));
+          }
+        }
+      }
+
+      if (file) {
+        uploadData.append("file", file);
+      }
+
+      const mutationFn = isUpdating ? updatePassword : addPassword;
+
+      mutationFn(uploadData, {
+        onSuccess: () => {
+          setLoading(false);
+          setGeneratorPassword("");
+          navigate("/dashboard/folders");
+          toast.success(
+            `Password ${isUpdating ? "updated" : "added"} successfully.`,
+            { className: "toast-message" }
+          );
+        },
+        onError: (error) => {
+          setLoading(false);
+          setErrors(error.response?.data || {});
+          toast.error("Please fix the errors in the form!", {
+            className: "toast-message",
+          });
+        },
+      });
+    } catch (error) {
+      setLoading(false);
+      console.error("Encryption failed:", error);
+      toast.error("Failed to encrypt data. Please try again.", {
+        className: "toast-message",
+      });
+    }
+  };
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData({
+      ...formData,
+      [name]: value,
+    });
+    if (name === "emoji" && !value) {
+      setFormData({ ...formData, [name]: null });
+    }
+  };
+
+  const passwordVisibilityHandler = () => setIsPasswordShow((prev) => !prev);
+
+  const onEmojiClick = (emojiObject) => {
+    setInputStr((prevInput) => prevInput + emojiObject.emoji);
+    setShowPicker(false);
+    const emojiCodePoint = emojiObject.emoji.codePointAt(0).toString(16);
+    setFormData((prevFormData) => ({
+      ...prevFormData,
+      emoji: emojiCodePoint,
+    }));
+  };
+
+  useEffect(() => {
+    if (formData?.emoji) {
+      const imgTag = `<img src="/${formData.emoji}.png" alt="${formData.emoji}" width="auto" height="auto" />`;
+      setSelectedEmoji(imgTag);
+    }
+  }, [formData?.emoji]);
+
+  const handleEmojiSelect = (emoji) => {
+    setFormData((prevFormData) => ({
+      ...prevFormData,
+      emoji: emoji.name,
+    }));
+    const imgTag = `<img src="/${emoji.name}.png" alt="${emoji.name}" width="auto" height="auto" />`;
+    setSelectedEmoji(imgTag);
+    setShowPicker(false);
+  };
+
+  const handleSelect = (id, value) => {
+    setFormData((prevFormData) => ({
+      ...prevFormData,
+      folder: id,
+    }));
+    setSelectedValue(value);
+    setIsDropdownOpen(false);
+  };
+
+  useEffect(() => {
+    if (passSelectedFolderId && data?.results) {
+      const selectedFolder = data.results.find(
+        (folder) => folder.id === passSelectedFolderId
+      );
+      if (selectedFolder) {
+        setSelectedValue(selectedFolder.title);
+        setFormData((prevFormData) => ({
+          ...prevFormData,
+          folder: selectedFolder.id,
+        }));
+      }
+    }
+  }, [passSelectedFolderId, data]);
+
+  useEffect(() => {
+    if (formData?.folder && data?.results) {
+      const folder = data.results.find((item) => item.id === formData.folder);
+      if (folder) {
+        setSelectedValue(folder.title);
+      }
+    }
+  }, [formData?.folder, data]);
+
+  const handleBrowseClick = () => {
+    fileInputRef.current.click();
+    // setProgressValue(0);
+    // setSelectedFile(null);
+  };
+
+  const handleFileRemove = () => {
+    setProgressValue(0);
+    setSelectedFile(null);
+  };
+
+  const handleFileChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        toast.error("File size must be less than 2 MB.");
+        setSelectedFile(null);
+        return;
+      }
+      setSelectedFile(file);
+      setFormData((prevFormData) => ({
+        ...prevFormData,
+        file: file,
+      }));
+      const totalTime = Math.floor(Math.random() * (1500 - 500 + 1)) + 500;
+      const stepTime = totalTime / 100;
+
+      let currentProgress = 0;
+
+      const intervalId = setInterval(() => {
+        if (currentProgress < 100) {
+          currentProgress += 1;
+          setProgressValue(currentProgress);
+        } else {
+          clearInterval(intervalId);
+        }
+      }, stepTime);
+
+      return () => clearInterval(intervalId);
+    }
+  };
+
+  return (
+    <section className="w-full relative flex mt-[20px] md:mt-[42px] pb-[56px] gap-[7px]">
+      <img
+        src="/dots.svg"
+        className="absolute w-[100vh] h-[20vh] md:h-auto md:w-full top-[-100px] md:-[-130px] z-[1] object-cover"
+      />
+      <img
+        src="/boxes.svg"
+        className="absolute w-[100vh] md:w-[150vw] top-[-135px] h-[120vh] md:h-[75vw] z-[1] object-cover opacity-30"
+      />
+      <section className="w-full flex-1 flex flex-col md:gap-[20px] container z-[3]">
+        <h4 className=" text-white  text-[22px]  md:text-[32px] leading-[64px] font-[400]">
+          Root . Add Entry
+        </h4>
+
+        {/* <form enctype="multipart/form-data"> */}
+        <div className="flex flex-col md:gap-[38px] flex-wrap md:flex-row">
+          <div className="flex-1 flex flex-col md:gap-[4px]">
+            <label className="dm-sans text-[#DFDFDF] text-[9.77px] sm:text-[16px] leading-[19.54px] sm:leading-[32px] font-[400]">
+              Title
+            </label>
+            <input
+              name="title"
+              value={formData.title}
+              onChange={handleChange}
+              className="w-full dm-sans border-[1px] mb-1 md:mb-0 h-[37.86px] md:h-auto rounded-[10px] border-[#374CC4] outline-none bg-[#101E71] py-[15px] px-[12px] md:px-[24px] placeholder:text-[#DFDFDF36] text-white text-[16px] leading-[32px] font-[400]"
+            />
+            {errors.title && (
+              <span className="text-red-500 text-[12px] font-sans">
+                {errors.title[0]}
+              </span>
+            )}
+          </div>
+          <div className="flex-1 flex flex-col md:gap-[4px]">
+            <label className="dm-sans text-[#DFDFDF] text-[9.77px] sm:text-[16px] leading-[19.54px] sm:leading-[32px] font-[400]">
+              Username
+            </label>
+            <input
+              name="username"
+              value={formData.username}
+              onChange={handleChange}
+              className="w-full dm-sans border-[1px] mb-2 md:mb-0 h-[37.86px] md:h-auto rounded-[10px] border-[#374CC4] outline-none bg-[#101E71] py-[15px] px-[12px] md:px-[24px] placeholder:text-[#DFDFDF36] text-white text-[16px] leading-[32px] font-[400]"
+            />
+          </div>
+        </div>
+        <div className="flex flex-col md:gap-[38px] flex-wrap md:flex-row">
+          <div className="flex-1 flex flex-col md:gap-[4px]">
+            <label className="dm-sans text-[#DFDFDF] text-[9.77px] sm:text-[16px] leading-[19.54px] sm:leading-[32px] font-[400]">
+              Password
+            </label>
+            <div className="relative flex-1">
+              <input
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                type={isPasswordShow ? "text" : "password"}
+                className="w-full dm-sans border-[1px] mb-2 md:mb-0 h-[37.86px] md:h-auto rounded-[10px] border-[#374CC4] outline-none bg-[#101E71] py-[15px] px-[12px] md:px-[24px] placeholder:text-[#DFDFDF36] text-white text-[16px] leading-[32px] font-[400]"
+              />
+              <span
+                onClick={passwordVisibilityHandler}
+                className="cursor-pointer absolute top-[50%] right-[13px] translate-y-[-50%]"
+              >
+                {isPasswordShow ? <OpenEye /> : <CloseEye />}
+              </span>
+              <span
+                onClick={() => handleGeneratePassVisibility("form")}
+                className="cursor-pointer absolute top-[50%] right-[38px] md:right-[50px] translate-y-[-50%]"
+              >
+                <Dice />
+              </span>
+            </div>
+          </div>
+          <div className="flex-1 flex flex-col md:gap-[4px]">
+            <label className="dm-sans text-[#DFDFDF] text-[9.77px] sm:text-[16px] leading-[19.54px] sm:leading-[32px] font-[400]">
+              URL
+            </label>
+            <input
+              name="url"
+              value={formData.url}
+              onChange={handleChange}
+              className="w-full dm-sans border-[1px] mb-2 md:mb-0 h-[37.86px] md:h-auto rounded-[10px] border-[#374CC4] outline-none bg-[#101E71] py-[15px] px-[12px] md:px-[24px] placeholder:text-[#DFDFDF36] text-white text-[16px] leading-[32px] font-[400]"
+              placeholder="https://examples.com"
+            />
+          </div>
+        </div>
+        <div className="flex flex-col md:gap-[38px] flex-wrap md:flex-row">
+          <div className="relative flex-1 flex flex-col md:gap-[4px]">
+            <label className="dm-sans text-[#DFDFDF] text-[9.77px] sm:text-[16px] leading-[19.54px] sm:leading-[32px] font-[400]">
+              Select Emoji
+            </label>
+            <div className="relative flex-1 cursor-pointer">
+              <div
+                className="w-full dm-sans border-[1px] flex mb-2 md:mb-0 sm:min-h-[63px] rounded-[10px] border-[#374CC4] outline-none bg-[#101E71] py-[17px] px-[12px] md:px-[24px] placeholder:text-[#DFDFDF36] text-white text-[16px] leading-[32px] font-[400]"
+                dangerouslySetInnerHTML={{ __html: selectedEmoji }}
+                onClick={() => setShowPicker((prev) => !prev)}
+              ></div>
+
+              <svg
+                width="18"
+                height="10"
+                viewBox="0 0 18 10"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="absolute top-[40%] md:top-[50%] w-[12px] md:w-[18px] translate-y-[-50%] right-[20px]"
+              >
+                <path
+                  d="M18 0.623409C18 0.465262 17.9396 0.30342 17.8223 0.182052C17.5877 -0.0606842 17.2039 -0.0606842 16.9693 0.182052L8.94047 8.49025L1.02893 0.30342C0.794353 0.0606833 0.410505 0.0606833 0.175932 0.30342C-0.0586414 0.546156 -0.0586414 0.943361 0.175932 1.1861L8.51397 9.81795C8.74854 10.0607 9.13239 10.0607 9.36697 9.81795L17.8223 1.06841C17.9431 0.943362 18 0.785233 18 0.623409Z"
+                  fill="white"
+                />
+              </svg>
+
+              {showPicker && (
+                <div className="absolute mt-2 top-[100%] left-0 bg-[#101E71] border-[1px] border-[#374CC4] rounded-[12.87px] z-50 w-full py-4 px-2">
+                  <div className="grid grid-cols-6 md:grid-cols-9 lg:grid-cols-10 gap-5">
+                    {emojiArray.map((emoji) => (
+                      <div
+                        key={emoji.name}
+                        className="cursor-pointer w-[35.55px] h-[35.55px] flex justify-center items-center"
+                        onClick={() => handleEmojiSelect(emoji)}
+                      >
+                        <img
+                          src={emoji.url}
+                          alt={emoji.name}
+                          style={{ cursor: "pointer" }}
+                          className="w-auto h-auto"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            {/* {showPicker && <EmojiPicker onEmojiClick={onEmojiClick} />} */}
+          </div>
+          <div className="flex-1 flex flex-col md:gap-[4px]">
+            <label className="dm-sans text-[#DFDFDF] text-[9.77px] sm:text-[16px] leading-[19.54px] sm:leading-[32px] font-[400]">
+              Choose your folder
+            </label>
+            <div className="relative flex-1 cursor-pointer">
+              <Folder className="w-[18px] h-[18px] sm:w-[28px] sm:h-[28px] absolute top-[40%] md:top-[50%] translate-y-[-50%] left-[20px]" />
+              {selectedValue && (
+                <span className="absolute top-[40%] md:top-[50%] translate-y-[-50%] left-[50px] sm:left-[60px] font-sans text-white text-[16px]">
+                  {selectedValue}
+                </span>
+              )}
+              <input
+                placeholder="Click to choose folder here"
+                className={`w-full dm-sans mb-2 md:mb-0 border-[1px] h-[37.86px] md:h-auto rounded-[10px] border-[#374CC4] outline-none bg-[#101E71] py-[15px] ${
+                  selectedValue
+                    ? " placeholder:text-[#101E71]"
+                    : "placeholder:text-[#DFDFDF36]"
+                } placeholder:pl-11 sm:placeholder:pl-8 md:px-[24px]  placeholder:text-[16px] text-white text-[16px] leading-[32px] font-[400]`}
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                readOnly
+              />
+              <svg
+                width="18"
+                height="10"
+                viewBox="0 0 18 10"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="absolute top-[40%] md:top-[50%] w-[12px] md:w-[18px] translate-y-[-50%] right-[20px]"
+              >
+                <path
+                  d="M18 0.623409C18 0.465262 17.9396 0.30342 17.8223 0.182052C17.5877 -0.0606842 17.2039 -0.0606842 16.9693 0.182052L8.94047 8.49025L1.02893 0.30342C0.794353 0.0606833 0.410505 0.0606833 0.175932 0.30342C-0.0586414 0.546156 -0.0586414 0.943361 0.175932 1.1861L8.51397 9.81795C8.74854 10.0607 9.13239 10.0607 9.36697 9.81795L17.8223 1.06841C17.9431 0.943362 18 0.785233 18 0.623409Z"
+                  fill="white"
+                />
+              </svg>
+              {errors.folder && (
+                <span className="absolute bottom-[-20px] left-0 text-red-500 text-[12px] font-sans">
+                  {errors.folder[0]}
+                </span>
+              )}
+              {isDropdownOpen && (
+                <div className="absolute left-0 mt-2 w-full h-auto max-h-[200px] sm:max-h-[273px] overflow-y-auto bg-[#101E71] text-white shadow-[0px 4px 32px 0px #00000040] rounded-[12px] z-10">
+                  <ul className="p-4">
+                    {data?.results?.map((folder) => (
+                      <li
+                        key={folder.id}
+                        className="flex gap-[13px] cursor-pointer pl-1 py-2 text-[16px] font-sans"
+                        onClick={() => handleSelect(folder.id, folder.title)}
+                      >
+                        <Folder
+                          className={
+                            "mt-[4px] sm:mt-0 sm:mb-[2px] w-[18px] h-[18px] sm:w-[28px] sm:h-[28px]"
+                          }
+                        />
+                        {folder.title}
+                      </li>
+                    ))}
+                    <li
+                      className="flex gap-[13px] cursor-pointer pl-1 py-2 mt-0 text-[17px] font-sans"
+                      onClick={() => handleCreateFolderModal()}
+                    >
+                      <Folders
+                        className={
+                          "mt-[4px] sm:mt-0 sm:mb-[2px] w-[18px] h-[18px] sm:w-[28px] sm:h-[28px]"
+                        }
+                      />
+                      Create New Folder
+                    </li>
+                  </ul>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-col md:gap-[4px]">
+          <label className="dm-sans text-[#DFDFDF] text-[9.77px] sm:text-[16px] leading-[19.54px] sm:leading-[32px] font-[400]">
+            Notes
+          </label>
+          <textarea
+            name="notes"
+            value={formData.notes}
+            onChange={handleChange}
+            rows={1}
+            className=" w-full dm-sans border-[1px] h-[118.26px] md:h-auto rounded-[10px] border-[#374CC4] outline-none bg-[#101E71] py-[15px] px-[12px] md:px-[24px] placeholder:text-[#DFDFDF36] text-white text-[16px] leading-[32px] font-[400]"
+          ></textarea>
+          {errors.notes && (
+            <span className="text-red-500 text-[12px]">{errors.notes[0]}</span>
+          )}
+        </div>
+        <div className="flex flex-col mt-5 sm:mt-0">
+          <div className="flex gap-3">
+            <Cloud />
+            <div>
+              <p className="text-[14px] sm:text-[16px] leading-[32px] text-white font-sans">
+                Add any Attachments, upload document or file here,{" "}
+                <span
+                  style={{
+                    background: `linear-gradient(90deg, #963AFB 0%, #6211E4 100%)`,
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                    cursor: "pointer",
+                    borderBottom: "1px solid",
+                    borderColor: "#963AFB",
+                  }}
+                  onClick={handleBrowseClick}
+                >
+                  Browse.
+                </span>
+              </p>
+            </div>
+          </div>
+          {selectedFile && (
+            <div className="flex items-center mt-6">
+              <File className={"mb-5"} />
+              <div className="flex flex-col ml-1 sm:ml-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-9">
+                    <p className="text-[16px] leading-[32px] text-white font-sans">
+                      {selectedFile.name}
+                    </p>
+                    <p className="text-[#DFDFDF99]">
+                      {selectedFile.size > 0 &&
+                        ((selectedFile.size / (1024 * 1024)).toFixed(2) >= 0.01
+                          ? `${(selectedFile.size / (1024 * 1024)).toFixed(
+                              2
+                            )} MB`
+                          : `0.01 MB`)}
+                    </p>
+                  </div>
+                  {/* Cross icon */}
+                  <span
+                    className="ml-2 cursor-pointer text-red-500"
+                    onClick={handleFileRemove}
+                  >
+                    <Cross />
+                  </span>
+                </div>
+                <progress
+                  value={progressValue}
+                  max="100"
+                  className="w-[308px] sm:w-[408px] mt-2 h-[5px]"
+                  style={{
+                    appearance: "none",
+                    WebkitAppearance: "none",
+                  }}
+                ></progress>
+                <p className="text-[16px] leading-[32px] text-[#DFDFDF99] flex justify-end">
+                  {progressValue}%
+                </p>
+              </div>
+            </div>
+          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            style={{ display: "none" }}
+            onChange={handleFileChange}
+          />
+        </div>
+        {state?.item?.file_name && (
+          <div className="flex flex-col mt-5 sm:mt-0">
+            <div className="flex gap-3">
+              <Download />
+              <div>
+                <p className="text-[14px] sm:text-[18px] leading-[32px] text-white font-sans">
+                  {formData.file_name}
+                  <span
+                    style={{
+                      background: `linear-gradient(90deg, #963AFB 0%, #6211E4 100%)`,
+                      WebkitBackgroundClip: "text",
+                      WebkitTextFillColor: "transparent",
+                      cursor: "pointer",
+                      borderBottom: "1px solid",
+                      borderColor: "#963AFB",
+                    }}
+                    className="ml-2"
+                    onClick={handleFileDownload}
+                  >
+                    Download.
+                  </span>
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="flex gap-[12px] justify-center md:justify-end mt-[15px]">
+          <button
+            onClick={() => {
+              setGeneratorPassword("");
+              navigate(-1);
+            }}
+            className="py-[17px] w-[140px] rounded-[18.37px] bg-[#101E71] border-none outline-none text-white text-[15.5px] font-[400] dm-sans"
+          >
+            Cancel
+          </button>
+          <button
+            // Update the modal handler call
+            onClick={
+              isUpdating
+                ? async () => {
+                    try {
+                      const formDataToEncrypt = { ...formData };
+                      const file = formDataToEncrypt.file;
+                      delete formDataToEncrypt.file;
+
+                      const encryptedFormData = await encryptFormData(
+                        formDataToEncrypt
+                      );
+
+                      const uploadData = new FormData();
+                      for (const key in encryptedFormData) {
+                        if (
+                          encryptedFormData[key] !== null &&
+                          encryptedFormData[key] !== undefined
+                        ) {
+                          uploadData.append(key, encryptedFormData[key]);
+                        }
+                      }
+                      if (file) {
+                        uploadData.append("file", file);
+                      }
+
+                      handleConfirmChangesModal(uploadData);
+                    } catch (error) {
+                      console.error("Encryption failed:", error);
+                      toast.error("Failed to encrypt data. Please try again.", {
+                        className: "toast-message",
+                      });
+                    }
+                  }
+                : handleSubmit
+            }
+            style={{
+              background: loading
+                ? "#0E1956"
+                : "linear-gradient(90deg, #A143FF 0%, #5003DB 100%)",
+              cursor: loading ? "not-allowed" : "pointer",
+            }}
+            disabled={loading}
+            className="dm-sans w-[140px] h-[57px] flex items-center justify-center rounded-[18.37px] bg-[#101E71] border-none outline-none text-white text-[15.5px] font-[400] 
+            dm-sans
+            bg-[linear-gradient(90deg,_#A143FF_0%,_#5003DB_100%)]
+"
+          >
+            Ok
+            {loading && (
+              <ThreeDots
+                color="white"
+                height={10}
+                width={25}
+                ariaLabel="loading"
+                wrapperStyle={{ marginLeft: "5%" }}
+              />
+            )}
+          </button>
+        </div>
+        {/* </form> */}
+      </section>
+    </section>
+  );
+}
+
+export default AddPassword;

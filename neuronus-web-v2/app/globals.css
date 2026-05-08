@@ -1,0 +1,142 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: NeueBold;
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400 500 600 700;
+  src: url("/fonts/neue-plak-bold.woff") format("woff");
+}
+
+@font-face {
+  font-family: NeueRegular;
+  font-display: swap;
+  font-style: normal;
+  font-weight: 400;
+  src: url("/fonts/neue-plak-regular.woff") format("woff");
+}
+
+@font-face {
+  font-family: NeueThin;
+  font-display: swap;
+  font-style: normal;
+  font-weight: 100 200 300;
+  src: url("/fonts/neue-plak-thin.woff") format("woff");
+}
+
+@theme inline {
+  /* Fonts */
+  --font-NeueBold: "NeueBold", sans-serif;
+  --font-NeueRegular: "NeueRegular", sans-serif;
+  --font-NeueThin: "NeueThin", sans-serif;
+
+  /* Colors */
+  --color-primary: #101a53;
+  --color-backlight: #4c67ff;
+  --color-slate: #f7f7f7;
+
+  /* Breakpoints */
+  --breakpoint-xs: 425px;
+  --breakpoint-xxs: 368px;
+
+  /* Animations */
+  --animate-spin-reverse: spin 2s linear infinite reverse;
+}
+
+@utility gradient-text {
+  @apply text-transparent bg-clip-text bg-linear-to-r from-[#999999] via-white to-[#999999] font-bold tracking-wide leading-tight sm:leading-none;
+}
+
+@media (max-width: 768px) {
+  .container {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 100% !important;
+  }
+}
+
+html,
+body {
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "NeueRegular", sans-serif;
+  width: 100vw;
+  max-width: 2000px;
+  margin: 0 auto;
+  overflow-x: clip;
+  background-color: #f7f7f7;
+}
+
+/* Blogs CSS */
+.neuro-blog-order-list li {
+  position: relative !important;
+  padding-left: 25px !important;
+}
+
+.neuro-blog-order-list li::before {
+  position: absolute !important;
+  color: #3249B3 !important;
+  top: 1px !important;
+  left: 0 !important;
+  content: "\2713" !important;
+  font-family: "Font Awesome 5 Free" !important;
+  font-weight: 900 !important;
+  font-size: 17px !important;
+}
+.dark .neuro-blog-area-cls .neuro-blog-order-list li::before{
+  color: #fff !important;
+}
+
+.neuro-blog-area-cls p{
+  line-height: 1.7em !important;
+  margin-top: 10px !important;
+  font-size: 15px !important;
+}
+
+.neuro-blog-area-cls h1,
+.neuro-blog-area-cls h2,
+.neuro-blog-area-cls h3,
+.neuro-blog-area-cls h4,
+.neuro-blog-area-cls h5,
+.neuro-blog-area-cls h6
+{
+  line-height: 1.3em !important;
+  margin-bottom: .5rem !important;
+  font-weight: 700 !important;
+  /* font-family: "Neue Plak Extended Bold"; */
+}
+
+.neuro-blog-area-cls h1
+{
+  font-size: 31px !important;
+}
+
+.neuro-blog-area-cls h2
+{
+  font-size: 27px !important;
+}
+
+.neuro-blog-area-cls h3
+{
+  font-size: 24px !important;
+}
+
+.neuro-blog-area-cls h4
+{
+  font-size: 21px !important;
+}
+
+.neuro-blog-area-cls h5
+{
+  font-size: 18px !important;
+}
+.neuro-blog-area-cls h6
+{
+  font-size: 15px !important;
+}
+.neuro-blog-area-cls p:not(:last-child) {
+  margin-bottom: 20px !important;
+}
+.neuro-blog-order-list li{
+  padding-bottom: 10px !important;
+}

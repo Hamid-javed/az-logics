@@ -1,0 +1,54 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: 'Neue Plak';
+  src: url('./assets/fonts/NeuePlak-Bold.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+}
+
+body {
+  color: #1E1E1E;
+  font-family: 'Neue Plak';
+  background-color: #f8fafc;
+}
+
+/* Thin scrollbar styles */
+.thin-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #9CA3AF #F3F4F6;
+}
+
+.thin-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.thin-scrollbar::-webkit-scrollbar-track {
+  background: #F3F4F6;
+  border-radius: 3px;
+}
+
+.thin-scrollbar::-webkit-scrollbar-thumb {
+  background: #9CA3AF;
+  border-radius: 3px;
+}
+
+.thin-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #6B7280;
+}
+
+/* Remove native number input spinners where custom controls are used */
+.no-spinner::-webkit-outer-spin-button,
+.no-spinner::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.no-spinner {
+  -moz-appearance: textfield;
+}

@@ -1,0 +1,21 @@
+<svg width="100" height="100" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Lock shackle (the curved top part) -->
+  <path
+    d="M30 50V30C30 19.5066 38.5066 11 49 11V11C59.4934 11 68 19.5066 68 30V50"
+    stroke="#C0C0C0"
+    stroke-width="8"
+    stroke-linecap="round"
+  />
+  
+  <!-- Lock body -->
+  <rect
+    x="20"
+    y="45"
+    width="60"
+    height="45"
+    rx="6"
+    fill="#D4B957"
+    stroke="#B39B48"
+    stroke-width="2"
+  />
+</svg>
