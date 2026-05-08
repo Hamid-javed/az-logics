@@ -1,0 +1,80 @@
+name: CI/CD > NeuroNusPyService
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: main
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy to VPS
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Configure SSH
+        env:
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/github
+          chmod 600 ~/.ssh/github
+
+          cat >> ~/.ssh/config <<EOF
+          Host target
+            HostName $SSH_HOST
+            User $SSH_USER
+            IdentityFile ~/.ssh/github
+            LogLevel ERROR
+            StrictHostKeyChecking no
+          EOF
+
+      - name: Check if password is set
+        env:
+          SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
+        run: |
+          if [ -n "$SSH_PASSWORD" ]; then
+            echo "SSH_PASSWORD is set"
+          else
+            echo "SSH_PASSWORD is NOT set!"
+            exit 1
+          fi
+
+      - name: Debug Secrets (Safe View)
+        env:
+          SSH_PASSWORD: ${{ secrets.LIVE_SSH_PASSWORD }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          echo "Checking secret availability..."
+          echo "Password Length: ${#SSH_PASSWORD}"
+
+          # This allows you to see the key in the logs without GitHub masking it.
+          # Copy the output and run 'echo "OUTPUT" | base64 --decode' locally.
+          echo "--- START PRIVATE KEY (BASE64) ---"
+          echo "$SSH_PRIVATE_KEY" | base64
+          echo "--- END PRIVATE KEY (BASE64) ---"
+
+      - name: Run Deploy
+        env:
+          SSH_PASSWORD: ${{ secrets.LIVE_SSH_PASSWORD }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        shell: /usr/bin/bash -e {0}
+        run: |
+          echo "Password length is: ${#SSH_PASSWORD}"
+          echo "SSH_PRIVATE_KEY: ${SSH_PRIVATE_KEY}"
+
+          ssh target 'export SSH_PASSWORD='"'"$SSH_PASSWORD"'"'; \
+
+            cd /home/abdullah/backends/NeuroNusPyService && \
+            git pull && \
+
+            /home/abdullah/.local/bin/poetry install --no-root && \
+            /home/abdullah/.local/bin/poetry run python manage.py migrate && \
+            /home/abdullah/.local/bin/poetry run python manage.py collectstatic --noinput && \
+            echo "$SSH_PASSWORD" | sudo -S systemctl restart neuronus-backend.service && \
+            echo "$SSH_PASSWORD" | sudo -S systemctl reload nginx'

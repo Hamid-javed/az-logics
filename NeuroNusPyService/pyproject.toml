@@ -1,0 +1,40 @@
+[tool.poetry]
+name = "passwordmanagerbackend"
+version = "0.1.0"
+description = "SecurePass is a robust application for generating and managing passwords for various user accounts. Enjoy flexible security with both stateful and stateless password functionalities. Store passwords securely in our encrypted database or generate passwords without storing them on our servers."
+authors = ["abdullahzulfiqar653 <abdullahzulfiqar653@gmail.com>"]
+package-mode = false  # Add this line to disable package mode
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+django = "4.2"
+djangorestframework = "^3.15.2"
+django-environ = "^0.11.2"
+ipython = "^8.26.0"
+djangorestframework-simplejwt = "^5.3.1"
+shortuuid = "^1.0.13"
+cryptography = "^43.0.0"
+gunicorn = "^23.0.0"
+whitenoise = "^6.7.0"
+django-cors-headers = "^4.4.0"
+psycopg2-binary = "^2.9.9"
+pillow = "^10.4.0"
+openai = "^1.47.0"
+langchain = "^0.3.0"
+langchain-openai = "^0.2.0"
+jinja2 = "^3.1.4"
+django-filter = "^24.3"
+django-hosts = "^6.0"
+drf-yasg = "^1.21.8"
+boto3 = "^1.35.90"
+pypdf2 = "^3.0.1"
+pgpy = "^0.6.0"
+pyotp = "^2.9.0"
+qrcode = {extras = ["pil"], version = "^7.4.2"}
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

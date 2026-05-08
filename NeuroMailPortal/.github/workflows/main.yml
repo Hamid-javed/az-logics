@@ -1,0 +1,60 @@
+name: PROD Deployment
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: main
+  cancel-in-progress: true
+
+jobs:
+  publish-images:
+    name: Connecting to server for deployment
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/.ssh/
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/github
+          chmod 600 ~/.ssh/github
+          cat >>~/.ssh/config <<END
+          Host target
+            HostName $SSH_HOST
+            User $SSH_USER
+            IdentityFile ~/.ssh/github
+            LogLevel ERROR
+            StrictHostKeyChecking no
+          END
+
+      - name: Run Deploy
+        env:
+          SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
+        shell: /usr/bin/bash -e {0}
+        run: |
+          echo "Deploying..."
+          ssh target '
+            export NVM_DIR="$HOME/.nvm"
+            source "$NVM_DIR/nvm.sh"
+            nvm use 24.13.0
+
+            # 🔑 Increase Node memory (in MB)
+            export NODE_OPTIONS="--max-old-space-size=8192"
+
+            export SSH_PASSWORD='"'"$SSH_PASSWORD"'"'
+
+            cd /home/abdullah/frontends/NeuroMailPortal/ && \
+            git fetch origin main && \
+            git reset --hard origin/main && \
+            
+            npm ci || npm install
+            npm run build && \
+            echo "$SSH_PASSWORD" | sudo -S cp -r ./dist/* /var/www/NeuroMailPortal/ && \
+            echo "$SSH_PASSWORD" | sudo -S systemctl reload nginx
+            '
